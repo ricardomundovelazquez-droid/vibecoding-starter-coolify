@@ -1,0 +1,152 @@
+---
+description: Storage Agent — MinIO en VPS. Subir, obtener y eliminar archivos usando la API compatible con S3.
+globs: ["src/lib/storage/**", "**/upload*", "**/storage*"]
+alwaysApply: false
+---
+
+# Storage Agent
+
+## Stack
+- MinIO (servicio en Coolify, API compatible con S3)
+- @aws-sdk/client-s3 (SDK estándar apuntando a MinIO)
+- @aws-sdk/s3-request-presigner (URLs firmadas)
+
+## Cliente
+
+```typescript
+// src/lib/storage/index.ts
+import { S3Client } from '@aws-sdk/client-s3'
+
+export const storageClient = new S3Client({
+  endpoint: `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}`,
+  region: 'us-east-1', // MinIO ignora esto pero el SDK lo requiere
+  credentials: {
+    accessKeyId: process.env.MINIO_ACCESS_KEY!,
+    secretAccessKey: process.env.MINIO_SECRET_KEY!,
+  },
+  forcePathStyle: true, // obligatorio para MinIO
+})
+
+export const BUCKET = process.env.MINIO_BUCKET!
+```
+
+## Operaciones principales
+
+```typescript
+// src/lib/storage/operations.ts
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { storageClient, BUCKET } from './index'
+import { randomUUID } from 'crypto'
+
+// Subir archivo
+export async function uploadFile(
+  file: Buffer | Uint8Array,
+  options: {
+    folder: string        // ej: 'avatars', 'documents/user-id'
+    filename: string
+    contentType: string
+  }
+): Promise<{ key: string; url: string }> {
+  const ext = options.filename.split('.').pop()
+  const key = `${options.folder}/${randomUUID()}.${ext}`
+
+  await storageClient.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: file,
+    ContentType: options.contentType,
+  }))
+
+  return {
+    key,
+    url: `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${BUCKET}/${key}`,
+  }
+}
+
+// URL firmada para acceso temporal (archivos privados)
+export async function getSignedFileUrl(
+  key: string,
+  expiresInSeconds = 3600
+): Promise<string> {
+  return getSignedUrl(
+    storageClient,
+    new GetObjectCommand({ Bucket: BUCKET, Key: key }),
+    { expiresIn: expiresInSeconds }
+  )
+}
+
+// Eliminar archivo
+export async function deleteFile(key: string): Promise<void> {
+  await storageClient.send(new DeleteObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+  }))
+}
+```
+
+## Server Action — subir desde formulario
+
+```typescript
+// src/app/(dashboard)/profile/actions.ts
+'use server'
+import { auth } from '@/lib/auth'
+import { uploadFile } from '@/lib/storage/operations'
+import { db } from '@/lib/db'
+import { users } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+
+export async function uploadAvatar(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return { error: 'No autorizado' }
+
+  const file = formData.get('avatar') as File | null
+  if (!file) return { error: 'No se recibió archivo' }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { error: 'Tipo de archivo no permitido. Usa JPG, PNG o WebP.' }
+  }
+  if (file.size > MAX_SIZE) {
+    return { error: 'El archivo supera el límite de 5MB' }
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  const { key, url } = await uploadFile(buffer, {
+    folder: `avatars/${session.user.id}`,
+    filename: file.name,
+    contentType: file.type,
+  })
+
+  await db
+    .update(users)
+    .set({ image: url })
+    .where(eq(users.id, session.user.id))
+
+  return { success: true, url }
+}
+```
+
+## Organización de carpetas en MinIO
+
+```
+[bucket]/
+├── avatars/[userId]/          → fotos de perfil
+├── documents/[userId]/        → documentos del usuario
+├── [feature]/[entityId]/      → archivos por entidad
+└── public/                    → archivos de acceso público
+```
+
+## Reglas
+- Validar tipo MIME y tamaño en el servidor siempre (no confiar en el cliente)
+- Nunca exponer `MINIO_ACCESS_KEY` ni `MINIO_SECRET_KEY` al cliente
+- Para archivos privados → usar URLs firmadas con expiración corta
+- Organizar por `folder/userId/` para poder limpiar archivos de un usuario fácilmente
+- Si el bucket debe ser público, configurarlo en MinIO directamente (no en código)

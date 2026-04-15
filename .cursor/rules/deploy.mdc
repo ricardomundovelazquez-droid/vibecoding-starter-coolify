@@ -1,0 +1,165 @@
+---
+description: Deploy Agent — Coolify en VPS, Nixpacks, variables de entorno, dominio, SSL.
+globs: ["nixpacks.toml", "Dockerfile", ".env*", "next.config*"]
+alwaysApply: false
+---
+
+# Deploy Agent
+
+## Stack de deploy
+- **Coolify** — plataforma self-hosted en VPS
+- **Nixpacks** — buildpack automático (Coolify lo detecta solo)
+- **PostgreSQL** — servicio en Coolify
+- **MinIO** — servicio en Coolify
+
+---
+
+## next.config.ts
+
+```typescript
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  output: 'standalone', // obligatorio para Docker/Coolify
+  images: {
+    remotePatterns: [
+      {
+        protocol: process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http',
+        hostname: process.env.MINIO_ENDPOINT ?? '',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com', // avatares de Google
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com', // avatares de GitHub
+      },
+    ],
+  },
+}
+
+export default nextConfig
+```
+
+**`output: 'standalone'` es obligatorio** — sin esto Next.js no corre correctamente en contenedores.
+
+---
+
+## Configuración en Coolify
+
+### Nuevo proyecto en Coolify
+1. New Resource → Application → GitHub/GitLab
+2. Seleccionar repo
+3. Build Pack: **Nixpacks** (detección automática)
+4. En "Environment Variables" → agregar todas las del `.env.example`
+5. Domain → tu dominio → Enable SSL (Let's Encrypt automático)
+6. Deploy
+
+### Variables de entorno en Coolify
+Cada proyecto necesita estas variables en Coolify UI (Settings → Environment Variables):
+
+```bash
+DATABASE_URL=postgresql://[user]:[pass]@[postgres-service-name]:5432/[dbname]
+AUTH_SECRET=              # openssl rand -base64 32
+AUTH_URL=https://tu-dominio.com
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+MINIO_ENDPOINT=           # nombre del servicio MinIO en Coolify o IP
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=
+MINIO_SECRET_KEY=
+MINIO_BUCKET=
+MINIO_USE_SSL=false       # true si MinIO tiene dominio propio con SSL
+NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+NODE_ENV=production
+```
+
+### Servicios en Coolify
+Crear como servicios separados en el mismo proyecto:
+
+**PostgreSQL:**
+- New Resource → Database → PostgreSQL
+- Guardar las credenciales generadas
+- El `DATABASE_URL` usa el nombre interno del servicio como host
+
+**MinIO:**
+- New Resource → Service → MinIO
+- Configurar bucket desde la UI de MinIO (puerto 9001)
+- Crear access key/secret key desde la UI
+
+---
+
+## nixpacks.toml (opcional, solo si necesitas personalizar)
+
+```toml
+# nixpacks.toml — solo crear si el build automático falla
+[phases.build]
+cmds = ["npm run build"]
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[start]
+cmd = "node .next/standalone/server.js"
+```
+
+Normalmente no necesitas este archivo — Nixpacks detecta Next.js automáticamente.
+
+---
+
+## Entornos
+
+| Entorno | Cómo |
+|---------|------|
+| local | `npm run dev` + PostgreSQL local o Docker |
+| preview | Coolify preview por rama (opcional) |
+| production | Coolify main branch, deploy automático |
+
+---
+
+## Checklist de deploy
+
+- [ ] `next.config.ts` tiene `output: 'standalone'`
+- [ ] `npm run build` pasa sin errores en local
+- [ ] `.env.example` está actualizado con todas las variables
+- [ ] Variables configuradas en Coolify UI
+- [ ] Migraciones aplicadas: `npx drizzle-kit migrate`
+- [ ] Dominio configurado en Coolify
+- [ ] SSL activo (Let's Encrypt)
+- [ ] `AUTH_URL` apunta al dominio correcto (no localhost)
+- [ ] Bucket de MinIO creado y configurado
+- [ ] `AUTH_SECRET` generado y configurado (no el de desarrollo)
+
+---
+
+## .env.example (siempre commiteado, sin valores reales)
+
+```bash
+# Base de datos
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+
+# Auth.js — generar con: openssl rand -base64 32
+AUTH_SECRET=
+AUTH_URL=https://tu-dominio.com
+
+# Providers OAuth
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+
+# MinIO
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=
+MINIO_SECRET_KEY=
+MINIO_BUCKET=
+MINIO_USE_SSL=false
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NODE_ENV=development
+```

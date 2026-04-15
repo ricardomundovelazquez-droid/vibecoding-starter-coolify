@@ -1,0 +1,213 @@
+---
+description: Auth Agent — Auth.js v5 (NextAuth), providers, sesiones, middleware, protección de rutas.
+globs: ["src/lib/auth/**", "src/middleware.ts", "**/auth/**"]
+alwaysApply: false
+---
+
+# Auth Agent
+
+## Stack
+- Auth.js v5 (NextAuth) — `next-auth@beta`
+- PostgreSQL adapter (`@auth/drizzle-adapter`)
+- Providers: Google, GitHub, Email/Password (Credentials)
+
+## Setup principal
+
+```typescript
+// src/lib/auth/index.ts
+import NextAuth from 'next-auth'
+import { DrizzleAdapter } from '@auth/drizzle-adapter'
+import Google from 'next-auth/providers/google'
+import GitHub from 'next-auth/providers/github'
+import Credentials from 'next-auth/providers/credentials'
+import { db } from '@/lib/db'
+import { users } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import bcrypt from 'bcryptjs'
+import { z } from 'zod'
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: DrizzleAdapter(db),
+  session: { strategy: 'jwt' },
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+    }),
+    GitHub({
+      clientId: process.env.AUTH_GITHUB_ID!,
+      clientSecret: process.env.AUTH_GITHUB_SECRET!,
+    }),
+    Credentials({
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        const parsed = z.object({
+          email: z.string().email(),
+          password: z.string().min(8),
+        }).safeParse(credentials)
+
+        if (!parsed.success) return null
+
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, parsed.data.email))
+          .limit(1)
+
+        if (!user?.hashedPassword) return null
+
+        const valid = await bcrypt.compare(parsed.data.password, user.hashedPassword)
+        if (!valid) return null
+
+        return { id: user.id, email: user.email, name: user.name }
+      },
+    }),
+  ],
+  callbacks: {
+    jwt({ token, user }) {
+      if (user) token.id = user.id
+      return token
+    },
+    session({ session, token }) {
+      if (token.id) session.user.id = token.id as string
+      return session
+    },
+  },
+})
+```
+
+```typescript
+// src/app/api/auth/[...nextauth]/route.ts
+import { handlers } from '@/lib/auth'
+export const { GET, POST } = handlers
+```
+
+## Schema para Auth.js (Drizzle Adapter)
+
+```typescript
+// Agregar a src/lib/db/schema.ts
+export const accounts = pgTable('accounts', {
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: text('type').notNull(),
+  provider: text('provider').notNull(),
+  providerAccountId: text('provider_account_id').notNull(),
+  refresh_token: text('refresh_token'),
+  access_token: text('access_token'),
+  expires_at: integer('expires_at'),
+  token_type: text('token_type'),
+  scope: text('scope'),
+  id_token: text('id_token'),
+  session_state: text('session_state'),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.provider, t.providerAccountId] }),
+}))
+
+export const sessions = pgTable('sessions', {
+  sessionToken: text('session_token').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  expires: timestamp('expires').notNull(),
+})
+
+export const verificationTokens = pgTable('verification_tokens', {
+  identifier: text('identifier').notNull(),
+  token: text('token').notNull(),
+  expires: timestamp('expires').notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.identifier, t.token] }),
+}))
+
+// Agregar hashedPassword a users para Credentials provider
+// hashedPassword: text('hashed_password'),
+```
+
+## Middleware — protección de rutas
+
+```typescript
+// src/middleware.ts
+import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+
+const PROTECTED = ['/dashboard', '/settings', '/profile']
+const AUTH_ROUTES = ['/login', '/register']
+
+export default auth((req) => {
+  const { nextUrl, auth: session } = req
+  const isProtected = PROTECTED.some(r => nextUrl.pathname.startsWith(r))
+  const isAuthRoute = AUTH_ROUTES.some(r => nextUrl.pathname.startsWith(r))
+
+  if (!session && isProtected) {
+    return NextResponse.redirect(new URL('/login', nextUrl))
+  }
+  if (session && isAuthRoute) {
+    return NextResponse.redirect(new URL('/dashboard', nextUrl))
+  }
+
+  return NextResponse.next()
+})
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+}
+```
+
+## Obtener sesión
+
+```typescript
+// En Server Component o Server Action
+import { auth } from '@/lib/auth'
+
+const session = await auth()
+if (!session?.user?.id) redirect('/login')
+const userId = session.user.id
+
+// En Client Component
+import { useSession } from 'next-auth/react'
+const { data: session, status } = useSession()
+```
+
+## Registro con Credentials
+
+```typescript
+// src/app/(auth)/register/actions.ts
+'use server'
+import { db } from '@/lib/db'
+import { users } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import bcrypt from 'bcryptjs'
+import { z } from 'zod'
+import { redirect } from 'next/navigation'
+
+const schema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8),
+})
+
+export async function registerUser(formData: FormData) {
+  const parsed = schema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: parsed.error.flatten() }
+
+  const { name, email, password } = parsed.data
+
+  const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+  if (existing) return { error: 'Este email ya está registrado' }
+
+  const hashedPassword = await bcrypt.hash(password, 12)
+  await db.insert(users).values({ name, email, hashedPassword })
+
+  redirect('/login?registered=true')
+}
+```
+
+## Reglas
+- `auth()` en servidor siempre — nunca `getSession()` del cliente para autorización
+- Verificar `session.user.id` al inicio de cada Server Action que toque datos de usuario
+- Passwords con bcryptjs, rounds = 12 mínimo
+- `AUTH_SECRET` generado con `openssl rand -base64 32`, nunca hardcodeado

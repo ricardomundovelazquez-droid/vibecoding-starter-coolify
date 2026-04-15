@@ -1,0 +1,97 @@
+---
+description: UI Design Agent — shadcn/ui + Magic UI. Sin Figma. Vibecoding puro.
+globs: ["**/*.tsx", "**/globals.css", "**/components/**"]
+alwaysApply: false
+---
+
+# UI Design Agent
+
+## Fuentes de componentes — en orden
+
+### 1. shadcn/ui
+```bash
+npx shadcn@latest add accordion alert avatar badge button card
+npx shadcn@latest add checkbox dialog dropdown-menu form input
+npx shadcn@latest add label popover progress select separator
+npx shadcn@latest add sheet skeleton switch table tabs textarea
+npx shadcn@latest add toast tooltip
+```
+
+### 2. Magic UI
+```
+BlurFade, AnimatedGradientText, TypingAnimation, WordFadeIn
+DotPattern, GridPattern, Meteors, Particles
+ShimmerButton, RippleButton, InteractiveHoverButton
+MagicCard, BentoGrid, BentoCard
+NumberTicker, AnimatedCircularProgressBar
+Marquee
+```
+
+### 3. Custom — solo si 1 y 2 no cubren
+→ `src/components/[feature]/NombreComponente.tsx`
+
+## Patrones
+
+### Componente con shadcn
+```tsx
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+
+interface Props {
+  title: string
+  status: 'active' | 'inactive'
+  className?: string
+}
+
+export function ItemCard({ title, status, className }: Props) {
+  return (
+    <Card className={cn('hover:shadow-md transition-shadow', className)}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Badge variant={status === 'active' ? 'default' : 'secondary'}>
+          {status === 'active' ? 'Activo' : 'Inactivo'}
+        </Badge>
+      </CardHeader>
+    </Card>
+  )
+}
+```
+
+### Hero con Magic UI
+```tsx
+import { BlurFade } from '@/components/magicui/blur-fade'
+import { AnimatedGradientText } from '@/components/magicui/animated-gradient-text'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { DotPattern } from '@/components/magicui/dot-pattern'
+
+export function HeroSection() {
+  return (
+    <section className="relative flex flex-col items-center justify-center min-h-screen text-center px-4">
+      <DotPattern className="absolute inset-0 opacity-40" />
+      <div className="relative z-10 space-y-6 max-w-3xl">
+        <BlurFade delay={0.1}>
+          <AnimatedGradientText>Novedad</AnimatedGradientText>
+        </BlurFade>
+        <BlurFade delay={0.2}>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+            Tu headline aquí
+          </h1>
+        </BlurFade>
+        <BlurFade delay={0.3}>
+          <ShimmerButton>Empezar gratis</ShimmerButton>
+        </BlurFade>
+      </div>
+    </section>
+  )
+}
+```
+
+## Checklist por componente
+- [ ] Usa shadcn/ui o Magic UI como base
+- [ ] Sin colores, spacing o font-size hardcodeados
+- [ ] Acepta `className` para extensibilidad
+- [ ] Dark mode funciona (`text-foreground`, `bg-background`, etc.)
+- [ ] Loading → `<Skeleton>`, Error, Empty, Success definidos
+- [ ] `focus-visible:ring-2` en elementos interactivos
+- [ ] Mobile-first: diseña en 375px, expande con `sm:` `md:` `lg:`

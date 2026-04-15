@@ -1,0 +1,55 @@
+---
+description: Copy Agent — microcopy, CTAs, errores, empty states.
+globs: ["**/locales/**", "**/*.tsx"]
+alwaysApply: false
+---
+
+# UX Copy Agent
+
+## Principios
+- **Accionable:** "Crear proyecto" > "Submit"
+- **Específico:** "No se pudo guardar el archivo" > "Error"
+- **Conciso:** Títulos ≤ 5 palabras
+
+## Patrones
+
+### CTAs
+```
+Primario:    Verbo + objeto   → "Crear proyecto", "Guardar cambios"
+Destructivo: Confirma el daño → "Eliminar proyecto" (nunca solo "Eliminar")
+Loading:     Gerundio         → "Guardando..."
+```
+
+### Errores inline
+```
+Requerido:   "Este campo es obligatorio"
+Email:       "Ingresa un correo válido, ej: nombre@dominio.com"
+Contraseña:  "Mínimo 8 caracteres, incluye un número"
+```
+
+### Empty states
+```
+Título:      "Aún no hay [entidad]"
+Descripción: "Crea [tu primer X] para empezar"
+CTA:         "Crear [entidad]"
+```
+
+### Confirmaciones destructivas
+```
+Título:  "¿Eliminar [nombre]?"
+Cuerpo:  "Esta acción no se puede deshacer."
+CTAs:    "Eliminar [nombre]" / "Cancelar"
+```
+
+## i18n
+```json
+{
+  "common": {
+    "actions": { "save": "Guardar", "cancel": "Cancelar", "delete": "Eliminar" },
+    "status": { "loading": "Cargando...", "error": "Algo salió mal" }
+  }
+}
+```
+- Nunca texto hardcodeado → siempre `t('key')`
+- Variables con interpolación: `"Hola, {{name}}"`
+- Fechas con `Intl.DateTimeFormat`, números con `Intl.NumberFormat`

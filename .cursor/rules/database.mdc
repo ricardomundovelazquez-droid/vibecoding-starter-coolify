@@ -1,0 +1,195 @@
+---
+description: Database Agent — PostgreSQL + Drizzle ORM. Schema, migraciones, queries, relaciones.
+globs: ["src/lib/db/**", "drizzle/**", "**/schema.ts", "**/actions.ts"]
+alwaysApply: false
+---
+
+# Database Agent
+
+## Stack
+- PostgreSQL (servicio en Coolify)
+- Drizzle ORM
+- drizzle-kit (migraciones)
+
+## Setup del cliente
+
+```typescript
+// src/lib/db/index.ts
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { Pool } from 'pg'
+import * as schema from './schema'
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL!,
+})
+
+export const db = drizzle(pool, { schema })
+export type DB = typeof db
+```
+
+```typescript
+// drizzle.config.ts (raíz del proyecto)
+import type { Config } from 'drizzle-kit'
+
+export default {
+  schema: './src/lib/db/schema.ts',
+  out: './drizzle',
+  dialect: 'postgresql',
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,
+  },
+} satisfies Config
+```
+
+## Schema — patrones estándar
+
+```typescript
+// src/lib/db/schema.ts
+import {
+  pgTable, uuid, text, timestamp, boolean,
+  integer, pgEnum, index, uniqueIndex
+} from 'drizzle-orm/pg-core'
+
+// Timestamps reutilizables
+const timestamps = {
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}
+
+// Tabla de usuarios (complementa la de Auth.js)
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name'),
+  email: text('email').notNull().unique(),
+  emailVerified: timestamp('email_verified'),
+  image: text('image'),
+  ...timestamps,
+})
+
+// Tabla de ejemplo con relación
+export const projects = pgTable('projects', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  isPublic: boolean('is_public').default(false).notNull(),
+  ...timestamps,
+}, (table) => ({
+  userIdIdx: index('projects_user_id_idx').on(table.userId),
+}))
+
+// Tipos inferidos
+export type User = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
+export type Project = typeof projects.$inferSelect
+export type NewProject = typeof projects.$inferInsert
+```
+
+## Relaciones
+
+```typescript
+// src/lib/db/relations.ts
+import { relations } from 'drizzle-orm'
+import { users, projects } from './schema'
+
+export const usersRelations = relations(users, ({ many }) => ({
+  projects: many(projects),
+}))
+
+export const projectsRelations = relations(projects, ({ one }) => ({
+  user: one(users, {
+    fields: [projects.userId],
+    references: [users.id],
+  }),
+}))
+```
+
+## Queries — patrones correctos
+
+```typescript
+// SELECT con filtro
+const userProjects = await db
+  .select()
+  .from(projects)
+  .where(eq(projects.userId, userId))
+  .orderBy(desc(projects.createdAt))
+  .limit(20)
+
+// SELECT con relación
+const projectWithUser = await db.query.projects.findFirst({
+  where: eq(projects.id, projectId),
+  with: { user: true },
+})
+
+// INSERT
+const [newProject] = await db
+  .insert(projects)
+  .values({ name, userId, description })
+  .returning()
+
+// UPDATE
+const [updated] = await db
+  .update(projects)
+  .set({ name, updatedAt: new Date() })
+  .where(and(eq(projects.id, id), eq(projects.userId, userId)))
+  .returning()
+
+// DELETE
+await db
+  .delete(projects)
+  .where(and(eq(projects.id, id), eq(projects.userId, userId)))
+```
+
+## Migraciones
+
+```bash
+# Después de cambiar el schema:
+npx drizzle-kit generate    # genera SQL en drizzle/
+npx drizzle-kit migrate     # aplica al DB
+npx drizzle-kit studio      # UI para explorar (desarrollo)
+```
+
+**Regla:** nunca modificar archivos en `drizzle/` a mano. Solo con drizzle-kit.
+
+## Reglas de seguridad
+
+```
+SIEMPRE filtrar por userId en queries de datos del usuario
+NUNCA confiar en IDs del cliente — verificar sesión en Server Action primero
+SIEMPRE usar .returning() para confirmar que el insert/update fue exitoso
+NUNCA exponer el DATABASE_URL al cliente
+```
+
+## Server Action con DB — patrón completo
+
+```typescript
+// src/app/(dashboard)/projects/actions.ts
+'use server'
+import { db } from '@/lib/db'
+import { projects } from '@/lib/db/schema'
+import { auth } from '@/lib/auth'
+import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+import { eq, and } from 'drizzle-orm'
+
+const schema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+})
+
+export async function createProject(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.id) return { error: 'No autorizado' }
+
+  const parsed = schema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: parsed.error.flatten() }
+
+  const [project] = await db
+    .insert(projects)
+    .values({ ...parsed.data, userId: session.user.id })
+    .returning()
+
+  revalidatePath('/dashboard/projects')
+  return { success: true, project }
+}
+```

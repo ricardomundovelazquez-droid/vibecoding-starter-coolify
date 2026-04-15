@@ -1,0 +1,117 @@
+---
+description: Stack tecnológico del proyecto. Siempre activo.
+globs:
+alwaysApply: true
+---
+
+# Stack tecnológico — reglas globales
+
+## Tecnologías permitidas
+
+| Capa | Tecnología |
+|------|-----------|
+| Framework | Next.js 15 — App Router obligatorio |
+| Lenguaje | TypeScript strict — sin `any` nunca |
+| Estilos | Tailwind CSS v4 |
+| Componentes base | shadcn/ui |
+| Componentes animados | Magic UI (magicui.design) |
+| Base de datos | PostgreSQL (servicio en Coolify) |
+| ORM | Drizzle ORM |
+| Auth | Auth.js v5 (NextAuth) |
+| Storage | MinIO (servicio en Coolify, API compatible S3) |
+| Deploy | Coolify en VPS propio — Nixpacks |
+| Estado global | Zustand |
+| Estado servidor | TanStack Query |
+| Formularios | React Hook Form + Zod |
+| Iconos | lucide-react (incluido en shadcn) |
+| Fechas | date-fns |
+| URL state | nuqs |
+| Dark mode | next-themes |
+| Email | Resend (opcional) |
+
+## Tecnologías prohibidas
+
+| Prohibido | Alternativa |
+|-----------|-------------|
+| Supabase (DB, Auth, Storage) | PostgreSQL + Auth.js + MinIO |
+| Vercel | Coolify en VPS |
+| Prisma | Drizzle ORM |
+| Figma / design tools externos | vibecoding puro |
+| CSS Modules / styled-components | Tailwind CSS |
+| Pages Router (`pages/`) | App Router (`app/`) |
+| Bootstrap / MUI / Chakra UI | shadcn/ui + Magic UI |
+| `fetch` desde Client Components | Server Actions |
+| `getServerSideProps` / `getStaticProps` | Server Components |
+| `any` en TypeScript | tipo real o `unknown` |
+| AWS S3 SDK directo | cliente MinIO (@aws-sdk/client-s3 apuntando a MinIO) |
+
+## Modelo de rendering
+
+```
+Server Component → por defecto en todo
+'use client'     → solo para: useState, useEffect,
+                   event listeners, browser APIs
+
+Nunca en Server: useState, useEffect, window, document
+Nunca en Client: db directo, secrets, session server-side
+```
+
+## Mutaciones de datos
+
+```
+SIEMPRE: Server Actions ('use server') en actions.ts por feature
+NUNCA:   fetch() directo al DB desde el cliente
+NUNCA:   Route Handlers para mutaciones de UI (solo webhooks externos)
+```
+
+## Componentes UI — orden de búsqueda
+
+```
+1. ¿Existe en shadcn/ui?       → usar (npx shadcn@latest add [nombre])
+2. ¿Existe en Magic UI?        → usar
+3. ¿Se puede componer?         → componer con los anteriores
+4. No existe equivalente       → crear custom en src/components/ui/
+```
+
+## Variables de entorno requeridas
+
+```bash
+# Base de datos
+DATABASE_URL=postgresql://[user]:[password]@[host]:5432/[dbname]
+
+# Auth.js
+AUTH_SECRET=                    # openssl rand -base64 32
+AUTH_URL=https://tu-dominio.com
+
+# Providers OAuth (los que uses)
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+
+# MinIO
+MINIO_ENDPOINT=                 # IP o dominio del VPS
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=
+MINIO_SECRET_KEY=
+MINIO_BUCKET=
+MINIO_USE_SSL=true
+
+# App
+NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+```
+
+## Comandos frecuentes
+
+```bash
+# shadcn
+npx shadcn@latest add [componente]
+
+# Drizzle
+npx drizzle-kit generate        # generar migración desde schema
+npx drizzle-kit migrate         # aplicar migraciones
+npx drizzle-kit studio          # UI para explorar la DB
+
+# Dev
+npm run dev
+```

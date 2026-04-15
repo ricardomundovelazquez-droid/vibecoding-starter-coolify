@@ -1,0 +1,74 @@
+---
+description: Auditores — actívalos siempre al terminar un task. Bloquean código con problemas de calidad, seguridad o consistencia.
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# Auditores de Calidad
+
+## @typescript-auditor — siempre
+```
+❌ any  → tipo real o unknown
+❌ @ts-ignore sin justificación
+❌ as [Tipo] sin validación previa
+❌ Parámetros sin tipo
+❌ Return types faltantes en Server Actions y utils
+✅ z.infer<typeof schema> para tipos de Zod
+✅ Tipos de Drizzle inferidos con $inferSelect / $inferInsert
+```
+
+## @code-quality-auditor — siempre
+```
+Límites:
+- Función: máximo 40 líneas
+- Componente: máximo 150 líneas
+- Indentación: máximo 3 niveles
+
+Bloquear:
+❌ Lógica duplicada en 2+ lugares → extraer a util o hook
+❌ Prop drilling >2 niveles → Zustand o contexto
+❌ console.log en producción
+❌ Código comentado
+❌ Función con "y" en el nombre → divide
+❌ Variables de una letra (excepto i/j en loops)
+```
+
+## @security-auditor — si tocó DB, auth o env vars
+```
+❌ MINIO_SECRET_KEY / AUTH_SECRET con NEXT_PUBLIC_
+❌ DATABASE_URL expuesto al cliente
+❌ Secrets hardcodeados
+❌ Query sin filtro de userId para datos del usuario
+❌ Server Action sin: const session = await auth(); if (!session?.user?.id)...
+❌ Passwords sin bcryptjs (mínimo 12 rounds)
+❌ Input del usuario sin validar con Zod antes del DB
+
+✅ auth() en servidor para verificar, nunca getSession() del cliente
+✅ .env.example actualizado
+```
+
+## @ux-consistency-auditor — si tocó UI
+```
+❌ Colores hardcodeados: #fff, blue, rgb(...)
+❌ Spacing hardcodeado: margin: 13px
+❌ font-size fuera del sistema: text-[15px]
+❌ Componente recreado que ya existe en shadcn/ui
+❌ Dark mode roto (no usa variables CSS de shadcn)
+
+✅ Estados: loading (Skeleton), error, empty, success
+✅ focus-visible:ring-2 en interactivos
+✅ Mobile-first (375px base)
+✅ alt en imágenes
+```
+
+## @performance-auditor — features con datos o imágenes
+```
+❌ Imágenes sin next/image
+❌ N+1 queries (query por cada item en loop)
+❌ fetch en useEffect → Server Component o TanStack Query
+❌ Listas +50 items sin paginación
+
+✅ Queries paralelas con Promise.all cuando no hay dependencia
+✅ dynamic(() => import(...)) para componentes pesados
+✅ Server Components hacen el fetch, no los Client Components
+```
