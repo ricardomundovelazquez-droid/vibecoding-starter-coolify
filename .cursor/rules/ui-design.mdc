@@ -1,12 +1,53 @@
 ---
-description: UI Design Agent — shadcn/ui + Magic UI. Sin Figma. Vibecoding puro.
+description: UI Design Agent — shadcn/ui + Magic UI + DESIGN.md. Sin Figma. Vibecoding puro.
 globs: ["**/*.tsx", "**/globals.css", "**/components/**"]
 alwaysApply: false
 ---
 
 # UI Design Agent
 
-## Fuentes de componentes — en orden
+## Contexto de diseño — DESIGN.md
+
+**Antes de generar cualquier componente visual, verifica si existe `docs/DESIGN.md`:**
+
+```
+¿Existe docs/DESIGN.md?
+  SÍ → leerlo con @docs/DESIGN.md y usar sus tokens como fuente de verdad
+  NO → usar variables CSS de shadcn y Tailwind por defecto
+```
+
+Cuando existe `docs/DESIGN.md`, sus valores tienen prioridad absoluta:
+- **Colores** → usar los hex exactos del DESIGN.md, no los de shadcn por defecto
+- **Tipografía** → instalar y usar las fuentes especificadas con `next/font/google`
+- **Spacing, radius, sombras** → respetar los valores del DESIGN.md
+- **Tono visual** → respetar la descripción de marca (ej: "minimalismo elegante", "dark cinematic")
+
+### Mapear tokens a globals.css
+
+Cuando el DESIGN.md define colores, mapearlos a las variables CSS de shadcn en `src/app/globals.css`:
+
+```css
+@layer base {
+  :root {
+    /* Sobreescribir con los valores del DESIGN.md del proyecto */
+    --primary: [H] [S]% [L]%;         /* color principal de la marca */
+    --primary-foreground: 0 0% 100%;
+    --background: 0 0% 100%;
+    --foreground: [H] [S]% [L]%;
+    --radius: [valor]rem;
+  }
+  .dark {
+    --background: [H] [S]% [L]%;
+    --foreground: [H] [S]% [L]%;
+  }
+}
+```
+
+Así todos los componentes de shadcn heredan los colores de marca automáticamente.
+
+---
+
+## Fuentes de componentes — en orden de prioridad
 
 ### 1. shadcn/ui
 ```bash
@@ -19,18 +60,20 @@ npx shadcn@latest add toast tooltip
 
 ### 2. Magic UI
 ```
-BlurFade, AnimatedGradientText, TypingAnimation, WordFadeIn
-DotPattern, GridPattern, Meteors, Particles
-ShimmerButton, RippleButton, InteractiveHoverButton
-MagicCard, BentoGrid, BentoCard
-NumberTicker, AnimatedCircularProgressBar
-Marquee
+Texto:    BlurFade, AnimatedGradientText, TypingAnimation, WordFadeIn
+Fondos:   DotPattern, GridPattern, Meteors, Particles
+Botones:  ShimmerButton, RippleButton, InteractiveHoverButton
+Cards:    MagicCard, BentoGrid, BentoCard
+Números:  NumberTicker, AnimatedCircularProgressBar
+Layout:   Marquee
 ```
 
-### 3. Custom — solo si 1 y 2 no cubren
-→ `src/components/[feature]/NombreComponente.tsx`
+### 3. Custom
+Solo si shadcn + Magic UI no cubren. → `src/components/[feature]/`
 
-## Patrones
+---
+
+## Patrones de código
 
 ### Componente con shadcn
 ```tsx
@@ -88,10 +131,10 @@ export function HeroSection() {
 ```
 
 ## Checklist por componente
-- [ ] Usa shadcn/ui o Magic UI como base
-- [ ] Sin colores, spacing o font-size hardcodeados
+- [ ] Si existe docs/DESIGN.md → tokens aplicados en globals.css
+- [ ] Sin colores, spacing o font-size hardcodeados fuera del sistema
 - [ ] Acepta `className` para extensibilidad
 - [ ] Dark mode funciona (`text-foreground`, `bg-background`, etc.)
-- [ ] Loading → `<Skeleton>`, Error, Empty, Success definidos
+- [ ] Estados: loading (Skeleton), error, empty, success
 - [ ] `focus-visible:ring-2` en elementos interactivos
-- [ ] Mobile-first: diseña en 375px, expande con `sm:` `md:` `lg:`
+- [ ] Mobile-first: 375px base, expande con `sm:` `md:` `lg:`
