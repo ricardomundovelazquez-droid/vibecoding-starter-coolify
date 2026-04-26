@@ -1,125 +1,144 @@
-# Project Instructions
+# INSTRUCTIONS.md — Contexto del Proyecto
 
-> Lee este archivo primero. Referenciarlo con @INSTRUCTIONS.md al inicio de cada sesión.
-
-## Proyecto
-**Nombre:** [NOMBRE DEL PROYECTO]
-**Tipo:** [SaaS / App interna / Sitio web / Herramienta]
-**Descripción:** [1-2 oraciones — qué hace y para quién]
-**URL producción:** [tu-dominio.com]
-**Repo:** [github.com/usuario/repo]
+> Este archivo es el cerebro del proyecto. Todos los agentes lo leen antes de hacer cualquier cosa.
+> Llénalo al inicio del proyecto. Entre más completo, mejor trabajan los agentes.
 
 ---
 
-## Stack — no negociable
+## 1. Información general
 
-| Capa | Tecnología |
-|------|-----------|
-| Framework | Next.js 15 (App Router) |
-| Lenguaje | TypeScript strict |
-| Estilos | Tailwind CSS v4 |
-| Componentes | shadcn/ui + Magic UI |
-| Base de datos | PostgreSQL (Coolify) |
-| ORM | Drizzle ORM |
-| Auth | Auth.js v5 (NextAuth) |
-| Storage | MinIO (Coolify) |
-| Deploy | Coolify en VPS — Nixpacks |
-| Estado global | Zustand |
-| Estado servidor | TanStack Query |
-| Formularios | React Hook Form + Zod |
-
-**Sin Supabase. Sin Vercel. Sin Figma. Todo vibecoding en VPS propio.**
+- **Nombre del proyecto**: [NOMBRE]
+- **Cliente / Dueño**: [NOMBRE DEL CLIENTE O "Studio Lemon — interno"]
+- **Tipo de proyecto**: [Dashboard interno / App para clientes / Landing + App / Otro]
+- **Descripción en una línea**: [Qué hace la app en una sola oración]
+- **Descripción completa**: [2-4 párrafos explicando el problema que resuelve y cómo]
 
 ---
 
-## Estructura del proyecto
+## 2. Usuarios del sistema
 
-```
-src/
-├── app/
-│   ├── (auth)/          → login, register
-│   ├── (dashboard)/     → rutas protegidas
-│   └── api/auth/        → Auth.js handler
-├── components/
-│   ├── ui/              → shadcn/ui + Magic UI + customs
-│   └── [feature]/       → componentes por feature
-├── lib/
-│   ├── db/
-│   │   ├── index.ts     → cliente Drizzle
-│   │   ├── schema.ts    → tablas y tipos
-│   │   └── relations.ts → relaciones
-│   ├── auth/
-│   │   └── index.ts     → config Auth.js
-│   ├── storage/
-│   │   └── index.ts     → cliente MinIO
-│   └── utils.ts         → cn() y helpers
-├── hooks/
-├── stores/
-└── types/
-drizzle/                 → migraciones generadas (no editar)
-```
+| Tipo de usuario | Qué puede hacer | Notas |
+|---|---|---|
+| [Ej: Administrador] | [Ej: Ver todo, editar, eliminar] | [Ej: Solo 1 usuario admin] |
+| [Ej: Cliente] | [Ej: Ver sus pedidos, descargar facturas] | |
 
 ---
 
-## Convenciones
+## 3. Stack del proyecto
 
-| Elemento | Convención |
-|----------|-----------|
-| Componentes | `PascalCase.tsx` |
-| Hooks | `useCamelCase.ts` |
-| Stores | `camelCase.store.ts` |
-| Server Actions | `camelCase` en `actions.ts` |
-| Tablas DB | `snake_case` plural |
-| Código | inglés |
-| UI copy | [IDIOMA DEL PROYECTO] |
+> Llena esto DESPUÉS de correr @architect o de tomar la decisión del stack manualmente.
 
----
-
-## Reglas críticas
-
-1. Verificar sesión al inicio de cada Server Action: `const session = await auth(); if (!session?.user?.id) return { error: 'No autorizado' }`
-2. Sin `any` en TypeScript — nunca
-3. Server Components por defecto
-4. Mutaciones solo vía Server Actions
-5. Inputs validados con Zod antes del DB
-6. Secrets nunca con prefijo `NEXT_PUBLIC_`
-7. Secrets nunca en código fuente
-8. `output: 'standalone'` en next.config.ts (obligatorio para Coolify)
-9. Regenerar tipos Drizzle después de cada cambio de schema
+- **Framework**: Next.js 15 (App Router) ← cambiar si @architect recomienda otro
+- **ORM**: Drizzle ORM
+- **Base de datos**: PostgreSQL
+- **Auth**: Auth.js v5
+- **UI**: shadcn/ui + Magic UI
+- **Deploy**: Coolify + Nixpacks
 
 ---
 
-## Infra en Coolify
+## 4. Módulos activos
 
-| Servicio | Tipo | Notas |
-|---------|------|-------|
-| App | Application (Nixpacks) | Este repositorio |
-| DB | PostgreSQL | Servicio en Coolify |
-| Storage | MinIO | Servicio en Coolify |
+> Pon [x] en los módulos que este proyecto SÍ usa. Los agentes ignorarán los desmarcados.
 
----
-
-## Entornos
-
-| Entorno | App | DB |
-|---------|-----|----|
-| local | localhost:3000 | PostgreSQL local o Docker |
-| production | Coolify main branch | PostgreSQL en Coolify |
+- [x] **Auth** — Login y manejo de sesiones
+- [ ] **Storage** — Subida y gestión de archivos (MinIO)
+- [ ] **Email** — Emails transaccionales (Resend)
+- [ ] **Pagos** — Procesamiento de pagos (Stripe)
+- [x] **Google OAuth** — Login con cuenta de Google
+- [ ] **Tiempo real** — Notificaciones o chat en vivo
 
 ---
 
-## MCPs activos
-- **GitHub MCP** → commits y PRs
-- **PostgreSQL MCP** → queries directas en desarrollo
+## 5. Providers de autenticación activos
+
+> Solo marca los que este proyecto usará
+
+- [x] Email + Contraseña
+- [ ] Google OAuth
+- [ ] Teléfono + Contraseña (OTP por SMS)
+- [ ] GitHub
+- [ ] Otro: ___________
 
 ---
 
-## Usuarios del producto
-[Describir tipos de usuario — quiénes son y qué necesitan]
+## 6. Páginas / secciones principales
+
+> Lista las pantallas que tendrá la app. Esto ayuda a los agentes a entender el scope.
+
+| Ruta | Descripción | Acceso |
+|---|---|---|
+| `/` | [Ej: Landing page o redirect al login] | [Público / Autenticado] |
+| `/dashboard` | [Ej: Panel principal] | [Autenticado] |
+| `/login` | [Ej: Formulario de acceso] | [Público] |
+| [agregar más...] | | |
 
 ---
 
-## Estado del proyecto
-- [ ] Setup inicial
-- [ ] Auth (login / registro / providers)
-- [ ] Feature principal
+## 7. Entidades principales del sistema
+
+> Las "cosas" que la app maneja. Ayuda al agente @database a diseñar el schema.
+
+| Entidad | Descripción |
+|---|---|
+| [Ej: Usuario] | [Ej: Persona que accede al sistema] |
+| [Ej: Cotización] | [Ej: Presupuesto enviado a un cliente] |
+| [agregar más...] | |
+
+---
+
+## 8. Integraciones externas
+
+> APIs o servicios de terceros que este proyecto usa o va a usar.
+
+| Servicio | Para qué | Status |
+|---|---|---|
+| [Ej: Facturapi] | [Ej: Generar CFDIs] | [Planeado / Activo] |
+| [agregar más...] | | |
+
+---
+
+## 9. Variables de entorno
+
+> Estado actual de la configuración. Actualiza esto conforme vayas llenando tu .env.local
+
+| Variable | Status |
+|---|---|
+| DATABASE_URL | [ ] Pendiente / [x] Lista |
+| AUTH_SECRET | [ ] Pendiente / [x] Lista |
+| AUTH_URL | [ ] Pendiente / [x] Lista |
+| GOOGLE_CLIENT_ID | [ ] Pendiente / N/A |
+| GOOGLE_CLIENT_SECRET | [ ] Pendiente / N/A |
+| MINIO_ENDPOINT | [ ] Pendiente / N/A |
+| RESEND_API_KEY | [ ] Pendiente / N/A |
+
+---
+
+## 10. Convenciones del proyecto
+
+> Reglas específicas de este proyecto. Los agentes las respetan.
+
+- **Idioma del código**: Inglés (variables, funciones, componentes)
+- **Idioma de la UI**: [Español / Inglés / Ambos]
+- **Idioma de comentarios**: Español
+- **Formato de fechas**: [DD/MM/YYYY o según necesidad del cliente]
+- **Moneda**: [MXN / USD]
+- **Zona horaria**: America/Mexico_City
+
+---
+
+## 11. Lo que NO debe hacer el sistema
+
+> Límites explícitos del proyecto. Ayuda a evitar scope creep.
+
+- [Ej: No manejar pagos (el cliente paga por transferencia)]
+- [Ej: No enviar emails en esta versión]
+- [agregar más...]
+
+---
+
+## 12. Notas adicionales para los agentes
+
+> Cualquier cosa específica que los agentes deben saber sobre este proyecto.
+
+[Espacio libre para notas, contexto del cliente, decisiones tomadas, etc.]
