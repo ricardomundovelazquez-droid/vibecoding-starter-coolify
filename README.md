@@ -92,6 +92,67 @@ Ver catálogo completo en: https://getdesign.md
 
 O editar `docs/DESIGN.md` directamente con los colores de tu marca.
 
+---
+
+### 🎨 Skills de diseño (opcional, bajo demanda)
+
+Estos skills le enseñan a tu agente AI principios reales de diseño. **No se activan solos** — los instalas una vez por proyecto y los invocas cuando los necesitas desde el chat de Cursor.
+
+#### Instalar ambos skills
+
+```bash
+npx skills add pbakaus/impeccable
+npx skills add emilkowalski/skill
+```
+
+---
+
+#### Impeccable — Vocabulario de diseño + 23 comandos
+
+**¿Para qué sirve?**
+Le da a tu agente conocimiento profundo de tipografía, color, espaciado, motion y UX writing. Incluye detección de "AI slop" (patrones genéricos que genera la IA por default).
+
+**¿Cuándo usarlo?**
+- Al construir cualquier vista nueva o landing
+- Cuando el diseño se ve genérico o "hecho por IA"
+- Para iterar sobre UI con comandos precisos
+
+**Comandos clave:**
+
+```
+/impeccable redo este hero         → rediseña un componente
+/impeccable audit checkout         → audita problemas de diseño
+/impeccable typeset                → mejora tipografía
+/impeccable colorize               → trabaja la paleta de color
+/impeccable teach                  → configura el contexto de diseño del proyecto
+```
+
+> 🔗 [impeccable.style](https://impeccable.style)
+
+---
+
+#### Emil Kowalski Skill — Animaciones y polish de UI
+
+**¿Para qué sirve?**
+Skill basado en los artículos de Emil Kowalski (autor de Sonner, Vaul). Cubre animaciones, microinteracciones, performance y criterio de diseño de alto nivel.
+
+**¿Cuándo usarlo?**
+- Al revisar o mejorar animaciones de un componente
+- En la fase de polish, antes de entregar al cliente
+- Cuando algo "se siente" correcto funcionalmente pero le falta vida
+
+**Cómo invocarlo en Cursor:**
+
+```
+Usa el skill de emilkowalski para revisar las animaciones de este componente
+```
+
+> ⚠️ El propio autor recomienda usarlo puntualmente, no dejarlo siempre activo.
+
+> 🔗 [emilkowal.ski/skill](https://emilkowal.ski/skill)
+
+---
+
 ### Paso 8 — Primer arranque
 
 ```bash
